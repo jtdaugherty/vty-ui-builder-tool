@@ -10,13 +10,15 @@ import Control.Monad
 
 import System.Exit
 import System.Console.GetOpt
-import Text.PrettyPrint.HughesPJ
+import System.FilePath (takeExtension)
 
 import Graphics.Vty.Widgets.Builder
 import Graphics.Vty.Widgets.Builder.Config
 import Graphics.Vty.Widgets.Builder.Types
-import Graphics.Vty.Widgets.Builder.DTDGenerator
-import Graphics.Vty.Widgets.Builder.Handlers
+import Graphics.Vty.Widgets.Builder.Handlers (coreSpecHandlers)
+
+import Graphics.Vty.Widgets.Builder.Reader
+import Graphics.Vty.Widgets.Builder.Reader.XML
 
 -- For nicer-looking error message formatting
 import Text.Trans.Tokenize (tokenize, wrapStream, serialize)
@@ -30,7 +32,6 @@ data BuilderOpt = Help
                 | ValidateOnly
                 | GenerateInterfaceType Bool
                 | GenerateInterfaceBuilder Bool
-                | ListSupportedElements
                   deriving (Show, Eq)
 
 options :: [OptDescr BuilderOpt]
@@ -61,23 +62,25 @@ options = [ Option "h" ["help"] (NoArg Help) "This help output"
           , Option "v" ["validate-only"] (NoArg ValidateOnly)
                        ("Validate the input XML but do not generate any source\n"
                         ++ "code")
-
-          , Option "l" ["list"] (NoArg ListSupportedElements)
-                       "List the DTDs of the element types handled by this tool"
           ]
 
 usage :: [String] -> IO ()
 usage errs = do
   uh <- usageHeader
   putStrLn $ usageInfo uh options
+  putStrLn $ usageFooter inputReaders
   mapM_ (putStrLn . ("Error: " ++)) errs
+
+usageFooter :: [(String, (String, DocumentReader))] -> String
+usageFooter rs = unlines $ "Supported input document types:"
+                 : (map (\(ext, (desc, _)) -> "  " ++ ext ++ " - " ++ desc) rs)
 
 usageHeader :: IO String
 usageHeader = do
   progName <- getProgName
   return $ concat [ "Usage: "
                   , progName
-                  , " [options] <XML filename>\n"
+                  , " [options] <input document>\n"
                   ]
 
 configFromOptions :: [BuilderOpt] -> BuilderConfig
@@ -112,17 +115,10 @@ saveOutput opts output = do
       hClose h
       putStrLn $ "Output written to " ++ show path
 
-listSupportedElements :: [(String, [ElementHandler])] -> IO ()
-listSupportedElements theHandlers = do
-  let docs = (flip map) theHandlers $ \(dtdPath, hs) ->
-             vcat [ text dtdPath <> text ":"
-                  , nest 2 $ vcat $
-                         map (text . elementName) hs
-                  ]
-  putStrLn $ render $ vcat docs
-
-mkBuilderToolMain :: [(String, [ElementHandler])] -> IO ()
-mkBuilderToolMain theHandlers = do
+mkBuilderToolMain :: [(String, (String, DocumentReader))]
+                  -> [WidgetSpecHandler]
+                  -> IO ()
+mkBuilderToolMain readers specHandlers = do
   args <- getArgs
   let (opts, rest, errs) = getOpt Permute options args
 
@@ -134,43 +130,47 @@ mkBuilderToolMain theHandlers = do
          usage []
          exitSuccess
 
-  when (ListSupportedElements `elem` opts) $ do
-         listSupportedElements theHandlers
-         exitSuccess
-
   when (length rest /= 1) $ usage [] >> exitFailure
-  let [xmlFilename] = rest
+  let [inputFilename] = rest
       config = configFromOptions opts
+      ext = takeExtension inputFilename
 
-  inputHandle <- openFile xmlFilename ReadMode `catch`
-                 \e -> do
-                   putStrLn $ "Error opening " ++ xmlFilename ++ ":"
-                   print e
-                   exitFailure
+  reader <- case lookup ext readers of
+              Nothing -> do
+                putStrLn $ "No input document reader found for file extension " ++ (show ext)
+                exitFailure
+              Just (_, r) -> return r
 
-  validationResult <- validateAgainstDTD inputHandle xmlFilename theHandlers
+  docResult <- readDocument reader inputFilename `catch`
+               \e -> do
+                 putStrLn $ "Error opening " ++ inputFilename ++ ":"
+                 print e
+                 exitFailure
 
-  let allElementHandlers = concat $ map snd theHandlers
+  doc <- case docResult of
+           Left es -> do
+             putStrLn $ "Error(s) reading " ++ (show inputFilename) ++ ":"
+             mapM_ putStrLn es
+             exitFailure
+           Right d -> return d
 
-  case validationResult of
-    Left es -> do
-         putStrLn $ "Error validating " ++ (show xmlFilename) ++ ":"
-         mapM_ putStrLn es
-         exitFailure
-    Right e -> do
-         when (not (ValidateOnly `elem` opts)) $
-              do
-                result <- generateSourceForDocument config e allElementHandlers
-                case result of
-                  Left err -> do
-                              let errMsg = serialize $ wrapStream 72 $ tokenize err ()
-                              putStrLn $ "Error: " ++ errMsg
-                              exitFailure
-                  Right output -> saveOutput opts output
+  result <- generateSourceForDocument config doc specHandlers
+  case result of
+    Left err ->
+        do
+          let errMsg = serialize $ wrapStream 72 $ tokenize err ()
+          putStrLn $ "Error: " ++ errMsg
+          exitFailure
+    Right output -> saveOutput opts output
+
+-- |Filename extension, description, reader.
+inputReaders :: [(String, (String, DocumentReader))]
+inputReaders = [ (".xml"
+                 , ( "HaXml-based document reader (vty-ui-builder-xml package)"
+                   , xmlReader
+                   )
+                 )
+               ]
 
 defaultMain :: IO ()
-defaultMain = do
-  -- Use the DTD path as dictated by the installation location of this
-  -- package.
-  dtdPath <- getDTDDir
-  mkBuilderToolMain [(dtdPath, elementHandlers)]
+defaultMain = mkBuilderToolMain inputReaders coreSpecHandlers
