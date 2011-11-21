@@ -149,8 +149,9 @@ mkBuilderToolMain readers specHandlers = do
 
   doc <- case docResult of
            Left es -> do
-             putStrLn $ "Error(s) reading " ++ (show inputFilename) ++ ":"
-             mapM_ putStrLn es
+             putStrLn $ "Error processing " ++ (show inputFilename) ++ ":\n"
+             forM_ es $ \(msg, pos) ->
+                 putStrLn $ show pos ++ ":\n  " ++ msg ++ "\n"
              exitFailure
            Right d -> return d
 
