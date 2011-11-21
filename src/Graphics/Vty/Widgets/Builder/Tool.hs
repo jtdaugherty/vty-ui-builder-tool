@@ -60,7 +60,7 @@ options = [ Option "h" ["help"] (NoArg Help) "This help output"
                        "The output filename (default: standard output)"
 
           , Option "v" ["validate-only"] (NoArg ValidateOnly)
-                       ("Validate the input XML but do not generate any source\n"
+                       ("Validate the input document but do not generate any source\n"
                         ++ "code")
           ]
 
