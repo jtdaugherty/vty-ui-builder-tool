@@ -137,7 +137,7 @@ mkBuilderToolMain readers specHandlers = do
 
   reader <- case lookup ext readers of
               Nothing -> do
-                putStrLn $ "No input document reader found for file extension " ++ (show ext)
+                putStrLn $ "Error: no input document reader found for file extension " ++ (show ext)
                 exitFailure
               Just (_, r) -> return r
 
