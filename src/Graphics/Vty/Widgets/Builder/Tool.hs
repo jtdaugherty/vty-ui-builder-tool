@@ -20,9 +20,6 @@ import Graphics.Vty.Widgets.Builder.Handlers (coreSpecHandlers)
 import Graphics.Vty.Widgets.Builder.Reader
 import Graphics.Vty.Widgets.Builder.Reader.XML
 
--- For nicer-looking error message formatting
-import Text.Trans.Tokenize (tokenize, wrapStream, serialize)
-
 data BuilderOpt = Help
                 | ModuleName String
                 | GeneratePreamble Bool
@@ -157,10 +154,10 @@ mkBuilderToolMain readers specHandlers = do
 
   result <- generateSourceForDocument config doc specHandlers
   case result of
-    Left err ->
+    Left generationErrors ->
         do
-          let errMsg = serialize $ wrapStream 72 $ tokenize err ()
-          putStrLn $ "Error: " ++ errMsg
+          putStrLn $ "Error in source generation:"
+          mapM_ putStrLn generationErrors
           exitFailure
     Right output -> saveOutput opts output
 
