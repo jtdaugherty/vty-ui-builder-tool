@@ -157,7 +157,7 @@ mkBuilderToolMain readers specHandlers = do
     Left generationErrors ->
         do
           putStrLn $ "Error in source generation:"
-          mapM_ putStrLn generationErrors
+          mapM_ print generationErrors
           exitFailure
     Right output -> saveOutput opts output
 
