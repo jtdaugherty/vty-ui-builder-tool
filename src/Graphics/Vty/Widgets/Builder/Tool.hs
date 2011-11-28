@@ -159,7 +159,7 @@ mkBuilderToolMain readers specHandlers = do
           putStrLn $ "Error in source generation:"
           mapM_ print generationErrors
           exitFailure
-    Right output -> saveOutput opts output
+    Right output -> saveOutput opts (prettyPrintSource output)
 
 -- |Filename extension, description, reader.
 inputReaders :: [(String, (String, DocumentReader))]
