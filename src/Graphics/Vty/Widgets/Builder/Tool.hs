@@ -22,9 +22,7 @@ import Graphics.Vty.Widgets.Builder.Reader.XML
 
 data BuilderOpt = Help
                 | ModuleName String
-                | GeneratePreamble Bool
                 | GenerateMain Bool
-                | GenerateImports Bool
                 | OutputFilename String
                 | ValidateOnly
                 | GenerateInterfaceType Bool
@@ -37,10 +35,6 @@ options = [ Option "h" ["help"] (NoArg Help) "This help output"
           , Option "n" ["module-name"] (ReqArg ModuleName "NAME")
                        ("The name of the generated module (default: "
                         ++ (show $ moduleName defaultConfig) ++ ")")
-
-          , Option "d" ["no-module-decl"] (NoArg (GeneratePreamble False))
-                       ("Do not generate a module declaration or imports (only\n"
-                        ++ "generate the module body)")
 
           , Option "t" ["no-type"] (NoArg (GenerateInterfaceType False))
                        ("Do not generate the interface type used to return\n"
@@ -86,8 +80,6 @@ configFromOptions (o:os) =
     let config = configFromOptions os
     in case o of
          ModuleName s -> config { moduleName = s }
-         GeneratePreamble val -> config { generateModulePreamble = val }
-         GenerateImports val -> config { generateImports = val }
          GenerateMain val -> config { generateMain = val }
          GenerateInterfaceType val -> config { generateInterfaceType = val }
          GenerateInterfaceBuilder val -> config { generateInterfaceBuilder = val }
