@@ -113,7 +113,7 @@ saveOutput opts output = do
       putStrLn $ "Output written to " ++ show path
 
 mkBuilderToolMain :: [(String, (String, DocumentReader))]
-                  -> [WidgetSpecHandler]
+                  -> [WidgetElementHandler]
                   -> IO ()
 mkBuilderToolMain readers specHandlers = do
   args <- getArgs
