@@ -151,7 +151,9 @@ mkBuilderToolMain readers specHandlers = do
           putStrLn $ "Error in source generation:"
           mapM_ print generationErrors
           exitFailure
-    Right output -> saveOutput opts (prettyPrintSource output)
+    Right output -> if ValidateOnly `elem` opts then
+                        putStrLn "Validation succeeded, not writing source" else
+                        saveOutput opts (prettyPrintSource output)
 
 -- |Filename extension, description, reader.
 inputReaders :: [(String, (String, DocumentReader))]
